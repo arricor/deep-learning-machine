@@ -1,4 +1,6 @@
-# Ignore all Debian packages
+# Ansible retry files
+*.retry
+# Debian packages
 *.deb
-# Ignore package signing keys
+# Debian package signing keys
 *.pub
