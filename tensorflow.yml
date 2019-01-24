@@ -1,0 +1,18 @@
+---
+- hosts: deep_learners
+  remote_user: vagrant
+  become: yes
+  vars:
+    general_dependencies: python3
+    cuda_repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb
+  tasks:
+    - name: install general dependencies
+      apt:
+        name: "{{ general_dependencies }}"
+    - name: install CUDA drivers
+      dpkg_selections:
+        name: "{{ cuda_repo }}"
+        selection: install
+
+    # - name: install TensorFlow pre-requisites
+    # - name: install TensorFlow
