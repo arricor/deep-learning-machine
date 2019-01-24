@@ -1,0 +1,4 @@
+# Ignore all Debian packages
+*.deb
+# Ignore package signing keys
+*.pub

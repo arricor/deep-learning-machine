@@ -3,16 +3,34 @@
   remote_user: vagrant
   become: yes
   vars:
-    general_dependencies: python3
+    cuda_driver_package: cuda
     cuda_repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb
+    cuda_signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+    dpkg_command: /usr/bin/dpkg
+    dpkg_flags: -i
+    general_dependencies: python3
+    tmp_dir: /tmp/
+
   tasks:
     - name: install general dependencies
       apt:
         name: "{{ general_dependencies }}"
-    - name: install CUDA drivers
-      dpkg_selections:
-        name: "{{ cuda_repo }}"
-        selection: install
+    - name: copy the CUDA repo onto the machine
+      copy:
+        src: "{{ cuda_repo }}"
+        dest: "{{ tmp_dir }}"
+    - name: add the CUDA repo with dpkg
+      # NOTE: When using the 'command' module, the result will always show as changed.
+      command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cuda_repo }}"
+      args:
+        chdir: "{{ tmp_dir }}"
+    - name: get the CUDA signing key
+      apt_key:
+        url: "{{ cuda_signing_key_url }}"
+    - name: install CUDA drivers 
+      apt:
+        name: "{{ cuda_driver_package }}"
+        update_cache: yes
 
-    # - name: install TensorFlow pre-requisites
     # - name: install TensorFlow
+    # - name: install TensorFlow GPU package for CUDA-enabled GPU cards
