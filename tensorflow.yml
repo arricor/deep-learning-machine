@@ -1,53 +1,71 @@
 ---
 - hosts: deep_learners
-  remote_user: vagrant
-  become: yes
+  remote_user: vagrant # devops in production
+  become: no # Default to non-root user; only execute a task as root when required.
   vars:
     cuda_driver_package: cuda
-    cuda_repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
-    # cuda_repo: cuda-repo-ubuntu1804-10-0-local-10.0.130-410.48_1.0-1_amd64.deb # Local install
+    # cuda_repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
+    cuda_repo: cuda-repo-ubuntu1804-10-0-local-10.0.130-410.48_1.0-1_amd64.deb # Local install
     # cuda_signing_key_file: 7fa2af80.pub # Local install
     cuda_signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+    cuda_versioned_target: /etc/apt/sources.list.d/cuda-10-0-local-10.0.130-410.48.list
+    
     cudnn_driver_package: libcudnn7
     cudnn_repo: libcudnn7_7.4.2.24-1+cuda10.0_amd64.deb
+    cudnn_versioned_target: /usr/lib/x86_64-linux-gnu/libcudnn.so.7.4.2
+    
     dpkg_command: /usr/bin/dpkg
     dpkg_flags: -i
+    
     general_dependencies: 
       - python3
       - python3-pip
       - python3-setuptools
       - virtualenv
-      - virtualenvwrapper
+    
     libcupti_packages:
       - libcupti-dev
+    
     tensorflow_packages:
       - tensorflow-gpu
+    
     tmp_dir: /tmp/
     
     virtualenv_command: "virtualenv"
-    virtualenv_flags: "--system-site-packages -p python3"
-    virtualenv_path: "./venv/"
+    virtualenv_flags: "--system-site-packages -p python3.6"
+    virtualenv_path: venv
+    virtualenv_python: python3.6
 
   tasks:
-    # General
+    # General Dependencies
     - name: install general dependencies
+      become: true # Must be run as root.
       apt:
         name: "{{ general_dependencies }}"
+        update_cache: yes
     
     # CUDA
     - name: copy the CUDA repo onto the machine
       copy:
         src: "{{ cuda_repo }}"
         dest: "{{ tmp_dir }}"
+
+    - name: get the CUDA signing key
+      become: true # Must be run as root.
+      apt_key:
+        url: "{{ cuda_signing_key_url }}"
+
     - name: add the CUDA repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed.
+      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
+      #   The "creates" argument prevents this. If the given file exists, this step won't run.
+      become: true # Must be run as root.
       command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cuda_repo }}"
       args:
         chdir: "{{ tmp_dir }}"
-    - name: get the CUDA signing key
-      apt_key:
-        url: "{{ cuda_signing_key_url }}"
+        creates: "{{ cuda_versioned_target }}"
+      
     - name: install the CUDA drivers 
+      become: true # Must be run as root.
       apt:
         name: "{{ cuda_driver_package }}"
         update_cache: yes
@@ -57,29 +75,34 @@
       copy:
         src: "{{ cudnn_repo }}"
         dest: "{{ tmp_dir }}"
+
     - name: add the CUDNN repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed.
+      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
+      #   The "creates" argument prevents this. If the given file exists, this step won't run.
+      become: true # Must be run as root.
       command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cudnn_repo }}"
       args:
         chdir: "{{ tmp_dir }}"
-    - name: install the CUDNN drivers 
-      apt:
-        name: "{{ cudnn_driver_package }}"
-        update_cache: yes
+        creates: "{{ cudnn_versioned_target }}"
 
     # libcupti
     - name: install the libcupti library
+      become: true # Must be run as root.
       apt:
         name: "{{ libcupti_packages }}"
 
-    # virtualenv
-    - name: create the Python3 virtual environment
-      command: "{{ virtualenv_command }} {{ virtualenv_flags }} {{ virtualenv_path }}"
-    
+    # # virtualenv
+    # - name: create the Python3 virtual environment
+    #   # NOTE: When using the 'command' module, the result will always show as changed if it runs.
+    #   #   The "create" argument prevents this. If the given file exists, this step won't run.
+    #   command: "{{ virtualenv_command }} {{ virtualenv_flags }} {{ virtualenv_path }}"
+    #   args:
+    #     creates: "{{ virtualenv_path }}"
+        
     # # TensorFlow GPU package
     # - name: install TensorFlow GPU
     #   pip:
-    #     # executable: pip3.7
     #     name: "{{ tensorflow_packages }}"
     #     virtualenv: "{{ virtualenv_path }}"
-    #     virtualenv_site_packages: yes
+    #     virtualenv_python: "{{ virtualenv_python }}"
+    #     # virtualenv_site_packages: yes

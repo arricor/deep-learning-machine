@@ -90,4 +90,4 @@ In the future, if Arricor migrates its instances to a cloud service provider (CS
 
 ## Conclusion
 
-Free text once decision is made.
+TODO: Free text once decision is made.
