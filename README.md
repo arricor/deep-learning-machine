@@ -24,3 +24,7 @@ By default, Ansible will try to use native OpenSSH for remote communication when
 Ansible does not expose a channel to allow communication between the user and the ssh process to accept a password manually to decrypt an ssh key when using the ssh connection plugin (which is the default). The use of `ssh-agent` is highly recommended.
 
 Python must be installed on the remote machine for Ansible's 'ping' functionality to work.
+
+```bash
+$ ansible-playbook tensorflow.yml --ask-become-pass
+```
