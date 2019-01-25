@@ -22,6 +22,7 @@
         name: "{{ general_dependencies }}"
         update_cache: yes
     
+    # General Docker setup
     - name: add Docker's official GPG key
       become: true # Must be run as root.
       apt_key:
@@ -38,3 +39,20 @@
       apt:
         name: "{{ docker_apt_package }}"
         update_cache: yes
+
+    - name: create Docker group to avoid running as root
+      become: true # Must be run as root.
+      group:
+        name: docker
+        state: present
+    
+    - name: add devops user to Docker group
+      become: true # Must be run as root.
+      user:
+        name: devops
+        groups:
+          - docker
+        append: yes
+
+    # Tensorflow Docker Setup
+    
