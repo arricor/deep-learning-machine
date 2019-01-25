@@ -3,44 +3,17 @@
   remote_user: devops
   become: no # Default to non-root user; only execute a task as root when required.
   vars:
-    cuda_driver_package: cuda
-    cuda_repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
-    # cuda_repo: cuda-repo-ubuntu1804-10-0-local-10.0.130-410.48_1.0-1_amd64.deb # Local install for dev
-    cuda_signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-    cuda_versioned_target: /etc/apt/sources.list.d/cuda-10-0-local-10.0.130-410.48.list
-    
-    # cudnn_driver_package: libcudnn7
-    cudnn_repo: libcudnn7_7.4.2.24-1+cuda10.0_amd64.deb
-    cudnn_repo_dev: libcudnn7-dev_7.4.2.24-1+cuda10.0_amd64.deb
-    cudnn_versioned_target: /usr/lib/x86_64-linux-gnu/libcudnn.so.7.4.2
-    cudnn_versioned_target_dev: /usr/lib/x86_64-linux-gnu/libcudnn_static_v7.a
-    
-    
-    dpkg_command: /usr/bin/dpkg
-    dpkg_flags: -i
-    
+    docker_apt_package: docker-ce
+    docker_signing_key_url: https://download.docker.com/linux/ubuntu/gpg
+
     general_dependencies: 
-      - python3
-      - python3-dev
-      - python3-pip
-      - python3-setuptools
-      - virtualenv
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - python-apt
+      - software-properties-common
     
-    libcupti_packages:
-      - libcupti-dev
-    
-    pip_executable: pip3
-
-    tensorflow_packages:
-      - tensorflow-gpu
-    
-    tmp_dir: /tmp
-    
-    virtualenv_command: "virtualenv"
-    virtualenv_flags: "--system-site-packages -p python3.6"
-    virtualenv_path: venv
-    virtualenv_python: python3.6
-
   tasks:
     # General Dependencies
     - name: install general dependencies
@@ -49,82 +22,19 @@
         name: "{{ general_dependencies }}"
         update_cache: yes
     
-    # CUDA
-    - name: copy the CUDA repo onto the machine
-      copy:
-        src: "{{ cuda_repo }}"
-        dest: "{{ tmp_dir }}"
-
-    - name: get the CUDA signing key
+    - name: add Docker's official GPG key
       become: true # Must be run as root.
       apt_key:
-        url: "{{ cuda_signing_key_url }}"
+        url: "{{ docker_signing_key_url }}"
 
-    - name: add the CUDA repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "creates" argument prevents this. If the given file exists, this step won't run.
+    - name: add Docker apt repository
       become: true # Must be run as root.
-      command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cuda_repo }}"
-      args:
-        chdir: "{{ tmp_dir }}"
-        creates: "{{ cuda_versioned_target }}"
-      
-    - name: install the CUDA drivers 
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+        state: present
+
+    - name: install Docker CE
       become: true # Must be run as root.
       apt:
-        name: "{{ cuda_driver_package }}"
+        name: "{{ docker_apt_package }}"
         update_cache: yes
-
-    # CUDNN
-    - name: copy the CUDNN repo onto the machine
-      copy:
-        src: "{{ cudnn_repo }}"
-        dest: "{{ tmp_dir }}"
-
-    - name: add the CUDNN repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "creates" argument prevents this. If the given file exists, this step won't run.
-      become: true # Must be run as root.
-      command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cudnn_repo }}"
-      args:
-        chdir: "{{ tmp_dir }}"
-        creates: "{{ cudnn_versioned_target }}"
-
-    # CUDNN Dev Library
-    - name: copy the CUDNN dev repo onto the machine
-      copy:
-        src: "{{ cudnn_repo_dev }}"
-        dest: "{{ tmp_dir }}"
-
-    - name: add the CUDNN dev repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "creates" argument prevents this. If the given file exists, this step won't run.
-      become: true # Must be run as root.
-      command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cudnn_repo_dev }}"
-      args:
-        chdir: "{{ tmp_dir }}"
-        creates: "{{ cudnn_versioned_target_dev }}"
-
-    # # libcupti
-    # - name: install the libcupti library
-    #   become: true # Must be run as root.
-    #   apt:
-    #     name: "{{ libcupti_packages }}"
-
-    # virtualenv
-    - name: create the Python3 virtual environment
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "create" argument prevents this. If the given file exists, this step won't run.
-      command: "{{ virtualenv_command }} {{ virtualenv_flags }} {{ virtualenv_path }}"
-      args:
-        creates: "{{ virtualenv_path }}"
-        
-    # TensorFlow GPU package
-    - name: install TensorFlow GPU
-      become: true # Must be run as root to install globally.
-      pip:
-        # executable: "{{ pip_executable }}"
-        name: "{{ tensorflow_packages }}"
-        virtualenv: "{{ virtualenv_path }}"
-        # virtualenv_python: "{{ virtualenv_python }}"
-        # virtualenv_site_packages: yes
