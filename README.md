@@ -2,29 +2,94 @@
 
 This repository contains an Ansible playbook and instructions to create and manage Arricor's bare metal deep learning machines. For a description of why Ansible was chosen and what other alternatives were considered, please see [ToolSelection.md](ToolSelection.md)
 
-## Using This Repository
+## Using This Repository to Configure Your Environment
 
-Install the [pre-requisites](#Pre-requisites).
+1. [Installation](#Installation)
+2. [Configuration](#Configuration)
+3. [Running](#Running)
 
-### Pre-requisites
+---
 
-#### Ansible
+### Installation
 
-Install Ansible by following the directions for your machine [here](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html#installing-the-control-machine).
+For macOS users, the easiest way to install Ansible is via [Homebrew](https://brew.sh/):
+
+```bash
+$ brew install ansible
+```
+
+If that's not your cup of tea, install Ansible by following the directions for your machine [here](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html#installing-the-control-machine).
+
+---
+
+### Configuration
 
 Gather the following:
 
-- SSH key
-- List of servers
+- SSH key or user credentials for the remote account
 
-### Notes and Gotchas
+  **Note:** Ansible does not expose a channel to allow communication between the user and the ssh process to accept a password manually to decrypt an ssh key when using the ssh connection plugin (which is the default). The use of `ssh-agent` is highly recommended.
 
-By default, Ansible will try to use native OpenSSH for remote communication when possible. This enables ControlPersist (a performance feature), Kerberos, and options in `~/.ssh/config` such as Jump Host setup. However, when using Enterprise Linux 6 operating systems as the control machine (Red Hat Enterprise Linux and derivatives such as CentOS), the version of OpenSSH may be too old to support ControlPersist. On these operating systems, Ansible will fallback into using a high-quality Python implementation of OpenSSH called ‘paramiko’. If you wish to use features like Kerberized SSH and more, consider using Fedora, macOS, or Ubuntu as your control machine until a newer version of OpenSSH is available for your platform.
+- List of servers you wish to manage:
+  - hostnames/IP addresses
+  - SSH port
+  - usernames
 
-Ansible does not expose a channel to allow communication between the user and the ssh process to accept a password manually to decrypt an ssh key when using the ssh connection plugin (which is the default). The use of `ssh-agent` is highly recommended.
+Copy [hosts.example] to `/etc/ansible/hosts` (if it does not already exist). Populate the `hosts` file (no extension) with the information about the servers you gathered above.
 
-Python must be installed on the remote machine for Ansible's 'ping' functionality to work.
+Confirm that you have populated your Ansible hosts file correctly:
+
+```bash
+$ ansible-inventory --list
+```
+
+---
+
+### Running
+
+Once you're satisfied that you correctly populated your `hosts` file, update the `- hosts:` line of [tensorflow.yml] to reflect the hosts or groups you want to configure.
+
+Examples:
+
+- Apply against a single host defined as `ml2` in `/etc/ansible/hosts`:
+  ```yaml
+  - hosts: ml2
+  ```
+- Apply against a group of hosts defined as `production` in `/etc/ansible/hosts`:
+  ```yaml
+  - hosts: production
+  ```
+- Apply against all hosts defined in `/etc/ansible/hosts`:
+  ```yaml
+  - hosts: all
+  ```
+
+Then, when you're ready, run the playbook:
 
 ```bash
 $ ansible-playbook tensorflow.yml --ask-become-pass
 ```
+
+Review the output:
+
+- `[ok]` means no change (this task was already completed)
+- `[changed]` means the task successfully ran and the change was applied
+- `[unreachable]` means the host could not be reached
+- `[failed]` means the task ran but failed to complete
+
+`[ok]` and `[changed]` are successful outcomes. Any `[unreachable]` and `[failed]` outputs should be investigated and resolved.
+
+**Note:** This Ansible playbook is idempotent; once a configuration has been successfully applied, if you apply it again, all actions will report `[ok]`.
+
+## Executing Tensorflow Jobs in Your New Environment
+
+1. Login to the remote machine.
+2. Drop yourself into the shell on a Python 3 GPU-based Tensorflow container:
+  ```bash
+  $ docker run --runtime=nvidia -it tensorflow/tensorflow:latest-gpu-py3 bash
+  ```
+3. Profit!
+
+TODO: Add specifics on how to map volumes and run notebooks once discussed and agreed.
+
+**Note:** you must be a member of the `docker` group or have `sudo` access to run Docker commands.

@@ -1,16 +1,32 @@
+################################################################################
+# This file consists of three main sections:
+#   1. vars - variables used throughout the playbook are defined here. If you want to change packages or version, this is the place to do it.
+#     a. cuda - 
+#     b. docker - 
+#     c. general - 
+#     d. nvidia - 
+#     e. tensorflow - 
+#   2. tasks - these are the steps that will be executed by the playbook. This is a straightforward, sequential playbook.
+#     a. General Dependencies
+#     b. General Docker Setup
+#     c. Tensorflow Docker Setup
+#     d. CUDA Setup
+#     e. NVIDIA-Docker Runtime Setup
+#   3. handlers - these steps run only in response to specific events. If the event does not occur, the handler does not run.
+#     a. reboot the machine - 
+#     b. reload the docker service - 
+################################################################################
 ---
-- hosts: ml2
-  remote_user: devops
-  become: yes # All commands must run as root
-  vars:
 
+- hosts: test # Alternatively, 'canary', 'blue'|'green', 'all' according to your deployment strategy and your /etc/ansible/hosts file
+  become: yes # All commands must run as root
+
+  vars:
     cuda:
       apt:
         package: cuda
         repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
-        # repo: cuda-repo-ubuntu1804-10-0-local-10.0.130-410.48_1.0-1_amd64.deb # Local install
         signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-        versioned_target: /etc/apt/sources.list.d/cuda.list
 
     docker:
       apt:
@@ -19,6 +35,10 @@
         signing_key_url: https://download.docker.com/linux/ubuntu/gpg
       group_name: docker
       service_name: docker
+      users:
+        - devops
+        - sburke
+
 
     general:
       dependencies:
@@ -31,9 +51,6 @@
           - software-properties-common
         pip:
           - docker-py
-      dpkg:
-        command: /usr/bin/dpkg
-        flags: -i
       working_dir: /home/devops
     
     nvidia:
@@ -88,12 +105,13 @@
         name: "{{ docker.group_name }}"
         state: present
     
-    - name: add devops user to Docker group
+    - name: add users to Docker group
       user:
-        name: devops
+        append: yes
         groups:
           - "{{ docker.group_name }}"
-        append: yes
+        name: "{{ item }}"
+      loop: "{{ docker.users }}"
 
     # Tensorflow Docker Setup
     - name: pull the Tensorflow GPU image

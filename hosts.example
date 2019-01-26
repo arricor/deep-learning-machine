@@ -1,0 +1,18 @@
+---
+test:
+  hosts:
+    test1:
+      ansible_host: 127.0.0.1     # Replace with your remote IP
+      ansible_port: 2222          # Replace with your remote SSH port
+      ansible_user: vagrant       # Replace wtih your username
+
+production:
+  hosts:
+    ml1:
+      ansible_host: 10.1.20.201   # Replace with your remote IP
+      ansible_port: 22            # Replace with your remote SSH port
+      ansible_user: devops        # Replace wtih your username
+    ml2:
+      ansible_host: 10.1.20.202   # Replace with your remote IP
+      ansible_port: 22            # Replace with your remote SSH port
+      ansible_user: devops        # Replace wtih your username
