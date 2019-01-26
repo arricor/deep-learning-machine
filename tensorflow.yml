@@ -1,58 +1,166 @@
 ---
 - hosts: ml2
   remote_user: devops
-  become: no # Default to non-root user; only execute a task as root when required.
+  become: yes # All commands must run as root
   vars:
-    docker_apt_package: docker-ce
-    docker_signing_key_url: https://download.docker.com/linux/ubuntu/gpg
 
-    general_dependencies: 
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - gnupg-agent
-      - python-apt
-      - software-properties-common
+    cuda:
+      apt:
+        package: cuda
+        repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
+        # repo: cuda-repo-ubuntu1804-10-0-local-10.0.130-410.48_1.0-1_amd64.deb # Local install
+        signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+        versioned_target: /etc/apt/sources.list.d/cuda.list
+
+    docker:
+      apt:
+        package: docker-ce
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+        signing_key_url: https://download.docker.com/linux/ubuntu/gpg
+      group_name: docker
+      service_name: docker
+
+    general:
+      dependencies:
+        apt:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg-agent
+          - python-apt
+          - software-properties-common
+        pip:
+          - docker-py
+      dpkg:
+        command: /usr/bin/dpkg
+        flags: -i
+      working_dir: /home/devops
+    
+    nvidia:
+      apt:
+        package: nvidia-docker2
+        repo_filename: nvidia_github_io_nvidia_docker_ubuntu18_04_nvidia_docker.list
+        repos: 
+          libnvidia_container: deb https://nvidia.github.io/libnvidia-container/ubuntu18.04/$(ARCH) /
+          nvidia_container_runtime: deb https://nvidia.github.io/nvidia-container-runtime/ubuntu18.04/$(ARCH) /
+          nvidia_docker: deb https://nvidia.github.io/nvidia-docker/ubuntu18.04/$(ARCH) /
+        signing_key_url: https://nvidia.github.io/nvidia-docker/gpgkey
+
+    tensorflow:
+      image: tensorflow/tensorflow
+      tag: 1.12.0-gpu
     
   tasks:
     # General Dependencies
-    - name: install general dependencies
-      become: true # Must be run as root.
+    - name: install general apt dependencies
       apt:
-        name: "{{ general_dependencies }}"
+        name: "{{ general.dependencies.apt }}"
         update_cache: yes
+    
+    - name: install general pip dependencies for Ansible
+      pip:
+        name: "{{ general.dependencies.pip }}"
     
     # General Docker setup
     - name: add Docker's official GPG key
-      become: true # Must be run as root.
       apt_key:
-        url: "{{ docker_signing_key_url }}"
+        state: present
+        url: "{{ docker.apt.signing_key_url }}"
 
     - name: add Docker apt repository
-      become: true # Must be run as root.
       apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+        repo: "{{ docker.apt.repo }}"
         state: present
 
     - name: install Docker CE
-      become: true # Must be run as root.
       apt:
-        name: "{{ docker_apt_package }}"
+        name: "{{ docker.apt.package }}"
         update_cache: yes
+    
+    - name: ensure the docker service starts at boot
+      systemd:
+        name: "{{ docker.service_name }}"
+        enabled: yes
+        state: started
 
     - name: create Docker group to avoid running as root
-      become: true # Must be run as root.
       group:
-        name: docker
+        name: "{{ docker.group_name }}"
         state: present
     
     - name: add devops user to Docker group
-      become: true # Must be run as root.
       user:
         name: devops
         groups:
-          - docker
+          - "{{ docker.group_name }}"
         append: yes
 
     # Tensorflow Docker Setup
-    
+    - name: pull the Tensorflow GPU image
+      docker_image:
+        name: "{{ tensorflow.image }}"
+        tag: "{{ tensorflow.tag }}"
+
+    # CUDA Setup
+    - name: copy the CUDA repo onto the machine
+      copy:
+        src: "{{ cuda.apt.repo }}"
+        dest: "{{ general.working_dir }}"
+
+    - name: get the CUDA signing key
+      apt_key:
+        state: present
+        url: "{{ cuda.apt.signing_key_url }}"
+
+    - name: add the CUDA repo
+      apt:
+        deb: "{{ cuda.apt.repo }}"
+        state: present
+      
+    - name: install the CUDA drivers 
+      apt:
+        name: "{{ cuda.apt.package }}"
+        update_cache: yes
+      notify:
+        - reboot the machine
+
+    # NVIDIA-Docker Runtime Setup
+    - name: get the NVIDIA signing key
+      apt_key:
+        state: present
+        url: "{{ nvidia.apt.signing_key_url }}"
+
+    - name: add the libnvidia-container repo
+      apt_repository:
+        filename: "{{ nvidia.apt.repo_filename }}"
+        repo: "{{ nvidia.apt.repos.libnvidia_container }}"
+        state: present
+
+    - name: add the nvidia-container-runtime repo
+      apt_repository:
+        filename: "{{ nvidia.apt.repo_filename }}"
+        repo: "{{ nvidia.apt.repos.nvidia_container_runtime }}"
+        state: present
+
+    - name: add the nvidia-docker repo
+      apt_repository:
+        filename: "{{ nvidia.apt.repo_filename }}"
+        repo: "{{ nvidia.apt.repos.nvidia_docker }}"
+        state: present
+
+    - name: install the nvidia-docker2 runtime
+      apt:
+        name: "{{ nvidia.apt.package }}"
+        state: present
+        update_cache: yes
+      notify:
+        - reload the docker service
+
+  handlers:
+    - name: reboot the machine
+      reboot:
+
+    - name: reload the docker service
+      systemd:
+        name: "{{ docker.service_name }}"
+        state: reloaded
