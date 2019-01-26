@@ -37,8 +37,6 @@
       service_name: docker
       users:
         - devops
-        - sburke
-
 
     general:
       dependencies:
