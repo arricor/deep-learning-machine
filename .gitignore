@@ -1,6 +1,2 @@
 # Ansible retry files
 *.retry
-# Debian packages
-*.deb
-# Debian package signing keys
-*.pub

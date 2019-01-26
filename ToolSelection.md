@@ -90,4 +90,4 @@ In the future, if Arricor migrates its instances to a cloud service provider (CS
 
 ## Conclusion
 
-TODO: Free text once decision is made.
+Ansible allows for management of a server from scratch, with only the requirement to have a valid username and password. Additionally, its agentless approach avoids having to configure and maintain an admin server, further simplifying operations at the scale Arricor requires.

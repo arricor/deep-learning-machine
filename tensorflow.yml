@@ -1,130 +1,184 @@
+################################################################################
+# This file consists of three main sections:
+#   1. vars - variables used throughout the playbook are defined here. If you want to change packages or version, this is the place to do it.
+#     a. cuda - 
+#     b. docker - 
+#     c. general - 
+#     d. nvidia - 
+#     e. tensorflow - 
+#   2. tasks - these are the steps that will be executed by the playbook. This is a straightforward, sequential playbook.
+#     a. General Dependencies
+#     b. General Docker Setup
+#     c. Tensorflow Docker Setup
+#     d. CUDA Setup
+#     e. NVIDIA-Docker Runtime Setup
+#   3. handlers - these steps run only in response to specific events. If the event does not occur, the handler does not run.
+#     a. reboot the machine - 
+#     b. reload the docker service - 
+################################################################################
 ---
-- hosts: ml2
-  remote_user: devops
-  become: no # Default to non-root user; only execute a task as root when required.
+
+- hosts: test # Alternatively, 'canary', 'blue'|'green', 'all' according to your deployment strategy and your /etc/ansible/hosts file
+  become: yes # All commands must run as root
+
   vars:
-    cuda_driver_package: cuda
-    cuda_repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
-    # cuda_repo: cuda-repo-ubuntu1804-10-0-local-10.0.130-410.48_1.0-1_amd64.deb # Local install for dev
-    cuda_signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-    cuda_versioned_target: /etc/apt/sources.list.d/cuda-10-0-local-10.0.130-410.48.list
-    
-    # cudnn_driver_package: libcudnn7
-    cudnn_repo: libcudnn7_7.4.2.24-1+cuda10.0_amd64.deb
-    cudnn_repo_dev: libcudnn7-dev_7.4.2.24-1+cuda10.0_amd64.deb
-    cudnn_versioned_target: /usr/lib/x86_64-linux-gnu/libcudnn.so.7.4.2
-    cudnn_versioned_target_dev: /usr/lib/x86_64-linux-gnu/libcudnn_static_v7.a
-    
-    
-    dpkg_command: /usr/bin/dpkg
-    dpkg_flags: -i
-    
-    general_dependencies: 
-      - python3
-      - python3-dev
-      - python3-pip
-      - python3-setuptools
-      - virtualenv
-    
-    libcupti_packages:
-      - libcupti-dev
-    
-    pip_executable: pip3
+    cuda:
+      apt:
+        package: cuda
+        repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
+        signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
 
-    tensorflow_packages:
-      - tensorflow-gpu
-    
-    tmp_dir: /tmp
-    
-    virtualenv_command: "virtualenv"
-    virtualenv_flags: "--system-site-packages -p python3.6"
-    virtualenv_path: venv
-    virtualenv_python: python3.6
+    docker:
+      apt:
+        package: docker-ce
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+        signing_key_url: https://download.docker.com/linux/ubuntu/gpg
+      group_name: docker
+      service_name: docker
+      users:
+        - devops
+        - sburke
 
+
+    general:
+      dependencies:
+        apt:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg-agent
+          - python-apt
+          - software-properties-common
+        pip:
+          - docker-py
+      working_dir: /home/devops
+    
+    nvidia:
+      apt:
+        package: nvidia-docker2
+        repo_filename: nvidia_github_io_nvidia_docker_ubuntu18_04_nvidia_docker.list
+        repos: 
+          libnvidia_container: deb https://nvidia.github.io/libnvidia-container/ubuntu18.04/$(ARCH) /
+          nvidia_container_runtime: deb https://nvidia.github.io/nvidia-container-runtime/ubuntu18.04/$(ARCH) /
+          nvidia_docker: deb https://nvidia.github.io/nvidia-docker/ubuntu18.04/$(ARCH) /
+        signing_key_url: https://nvidia.github.io/nvidia-docker/gpgkey
+
+    tensorflow:
+      image: tensorflow/tensorflow
+      tag: 1.12.0-gpu
+    
   tasks:
     # General Dependencies
-    - name: install general dependencies
-      become: true # Must be run as root.
+    - name: install general apt dependencies
       apt:
-        name: "{{ general_dependencies }}"
+        name: "{{ general.dependencies.apt }}"
         update_cache: yes
     
-    # CUDA
+    - name: install general pip dependencies for Ansible
+      pip:
+        name: "{{ general.dependencies.pip }}"
+    
+    # General Docker setup
+    - name: add Docker's official GPG key
+      apt_key:
+        state: present
+        url: "{{ docker.apt.signing_key_url }}"
+
+    - name: add Docker apt repository
+      apt_repository:
+        repo: "{{ docker.apt.repo }}"
+        state: present
+
+    - name: install Docker CE
+      apt:
+        name: "{{ docker.apt.package }}"
+        update_cache: yes
+    
+    - name: ensure the docker service starts at boot
+      systemd:
+        name: "{{ docker.service_name }}"
+        enabled: yes
+        state: started
+
+    - name: create Docker group to avoid running as root
+      group:
+        name: "{{ docker.group_name }}"
+        state: present
+    
+    - name: add users to Docker group
+      user:
+        append: yes
+        groups:
+          - "{{ docker.group_name }}"
+        name: "{{ item }}"
+      loop: "{{ docker.users }}"
+
+    # Tensorflow Docker Setup
+    - name: pull the Tensorflow GPU image
+      docker_image:
+        name: "{{ tensorflow.image }}"
+        tag: "{{ tensorflow.tag }}"
+
+    # CUDA Setup
     - name: copy the CUDA repo onto the machine
       copy:
-        src: "{{ cuda_repo }}"
-        dest: "{{ tmp_dir }}"
+        src: "{{ cuda.apt.repo }}"
+        dest: "{{ general.working_dir }}"
 
     - name: get the CUDA signing key
-      become: true # Must be run as root.
       apt_key:
-        url: "{{ cuda_signing_key_url }}"
+        state: present
+        url: "{{ cuda.apt.signing_key_url }}"
 
-    - name: add the CUDA repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "creates" argument prevents this. If the given file exists, this step won't run.
-      become: true # Must be run as root.
-      command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cuda_repo }}"
-      args:
-        chdir: "{{ tmp_dir }}"
-        creates: "{{ cuda_versioned_target }}"
+    - name: add the CUDA repo
+      apt:
+        deb: "{{ cuda.apt.repo }}"
+        state: present
       
     - name: install the CUDA drivers 
-      become: true # Must be run as root.
       apt:
-        name: "{{ cuda_driver_package }}"
+        name: "{{ cuda.apt.package }}"
         update_cache: yes
+      notify:
+        - reboot the machine
 
-    # CUDNN
-    - name: copy the CUDNN repo onto the machine
-      copy:
-        src: "{{ cudnn_repo }}"
-        dest: "{{ tmp_dir }}"
+    # NVIDIA-Docker Runtime Setup
+    - name: get the NVIDIA signing key
+      apt_key:
+        state: present
+        url: "{{ nvidia.apt.signing_key_url }}"
 
-    - name: add the CUDNN repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "creates" argument prevents this. If the given file exists, this step won't run.
-      become: true # Must be run as root.
-      command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cudnn_repo }}"
-      args:
-        chdir: "{{ tmp_dir }}"
-        creates: "{{ cudnn_versioned_target }}"
+    - name: add the libnvidia-container repo
+      apt_repository:
+        filename: "{{ nvidia.apt.repo_filename }}"
+        repo: "{{ nvidia.apt.repos.libnvidia_container }}"
+        state: present
 
-    # CUDNN Dev Library
-    - name: copy the CUDNN dev repo onto the machine
-      copy:
-        src: "{{ cudnn_repo_dev }}"
-        dest: "{{ tmp_dir }}"
+    - name: add the nvidia-container-runtime repo
+      apt_repository:
+        filename: "{{ nvidia.apt.repo_filename }}"
+        repo: "{{ nvidia.apt.repos.nvidia_container_runtime }}"
+        state: present
 
-    - name: add the CUDNN dev repo with dpkg
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "creates" argument prevents this. If the given file exists, this step won't run.
-      become: true # Must be run as root.
-      command: "{{ dpkg_command }} {{ dpkg_flags }} {{ cudnn_repo_dev }}"
-      args:
-        chdir: "{{ tmp_dir }}"
-        creates: "{{ cudnn_versioned_target_dev }}"
+    - name: add the nvidia-docker repo
+      apt_repository:
+        filename: "{{ nvidia.apt.repo_filename }}"
+        repo: "{{ nvidia.apt.repos.nvidia_docker }}"
+        state: present
 
-    # # libcupti
-    # - name: install the libcupti library
-    #   become: true # Must be run as root.
-    #   apt:
-    #     name: "{{ libcupti_packages }}"
+    - name: install the nvidia-docker2 runtime
+      apt:
+        name: "{{ nvidia.apt.package }}"
+        state: present
+        update_cache: yes
+      notify:
+        - reload the docker service
 
-    # virtualenv
-    - name: create the Python3 virtual environment
-      # NOTE: When using the 'command' module, the result will always show as changed if it runs.
-      #   The "create" argument prevents this. If the given file exists, this step won't run.
-      command: "{{ virtualenv_command }} {{ virtualenv_flags }} {{ virtualenv_path }}"
-      args:
-        creates: "{{ virtualenv_path }}"
-        
-    # TensorFlow GPU package
-    - name: install TensorFlow GPU
-      become: true # Must be run as root to install globally.
-      pip:
-        # executable: "{{ pip_executable }}"
-        name: "{{ tensorflow_packages }}"
-        virtualenv: "{{ virtualenv_path }}"
-        # virtualenv_python: "{{ virtualenv_python }}"
-        # virtualenv_site_packages: yes
+  handlers:
+    - name: reboot the machine
+      reboot:
+
+    - name: reload the docker service
+      systemd:
+        name: "{{ docker.service_name }}"
+        state: reloaded
