@@ -70,6 +70,8 @@ Then, when you're ready, run the playbook:
 $ ansible-playbook tensorflow.yml --ask-become-pass
 ```
 
+**Note:** You must have `sudo` access to run the playbook!
+
 Review the output:
 
 - `[ok]` means no change (this task was already completed)
@@ -92,4 +94,4 @@ Review the output:
 
 TODO: Add specifics on how to map volumes and run notebooks once discussed and agreed.
 
-**Note:** you must be a member of the `docker` group or have `sudo` access to run Docker commands.
+**Note:** You must be a member of the `docker` group or have `sudo` access to run Docker commands.
