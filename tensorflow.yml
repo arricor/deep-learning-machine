@@ -49,6 +49,9 @@
         - /home/ldavis/src:/notebooks
 
     general:
+      data_folder:
+        src: /home/ldavis/data
+        dest: /home/ldavis
       dependencies:
         apt:
           - apt-transport-https
@@ -61,6 +64,9 @@
           - software-properties-common
         pip:
           - docker
+      rsync_options:
+        - "-e ssh"
+        - "--no-motd"
       working_dir: /home/devops
 
     nvidia:
@@ -237,6 +243,18 @@
         volumes: "{{ docker.volumes }}"
       tags:
         - jupyter
+
+    # Synchronize the data folder across hosts
+    - name: synchronize the data folder
+      delegate_to: ml1
+      synchronize:
+        src: "{{ general.data_folder.src }}"
+        dest: "{{ general.data_folder.dest }}"
+        rsync_opts: "{{ general.rsync_options }}"
+        use_ssh_args: yes
+      tags:
+        - data
+      when: inventory_hostname != "ml1"
 
   handlers:
     - name: reboot the machine
