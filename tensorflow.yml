@@ -19,6 +19,8 @@
 ---
 - hosts: test # Alternatively, 'canary', 'blue'|'green', 'all' according to your deployment strategy and your /etc/ansible/hosts file
   become: yes # All commands must run as root
+  vars_files:
+    - secrets.yml
 
   vars:
     cuda:
@@ -223,6 +225,8 @@
         auto_remove: yes
         debug: no
         detach: yes
+        env:
+          PASSWORD: "{{ secrets.jupyter_password }}"
         image: "{{ docker.image.name }}:{{ docker.image.tag }}"
         name: "{{ docker.container_name }}"
         published_ports: "{{ docker.published_ports }}"

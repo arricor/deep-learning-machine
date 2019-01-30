@@ -1,2 +1,5 @@
 # Ansible retry files
 *.retry
+
+# Application secrets
+secrets.yml
