@@ -1,11 +1,11 @@
 ################################################################################
 # This file consists of three main sections:
 #   1. vars - variables used throughout the playbook are defined here. If you want to change packages or version, this is the place to do it.
-#     a. cuda - 
-#     b. docker - 
-#     c. general - 
-#     d. nvidia - 
-#     e. tensorflow - 
+#     a. cuda -
+#     b. docker -
+#     c. general -
+#     d. nvidia -
+#     e. tensorflow -
 #   2. tasks - these are the steps that will be executed by the playbook. This is a straightforward, sequential playbook.
 #     a. General Dependencies
 #     b. General Docker Setup
@@ -13,11 +13,10 @@
 #     d. CUDA Setup
 #     e. NVIDIA-Docker Runtime Setup
 #   3. handlers - these steps run only in response to specific events. If the event does not occur, the handler does not run.
-#     a. reboot the machine - 
-#     b. reload the docker service - 
+#     a. reboot the machine -
+#     b. reload the docker service -
 ################################################################################
 ---
-
 - hosts: test # Alternatively, 'canary', 'blue'|'green', 'all' according to your deployment strategy and your /etc/ansible/hosts file
   become: yes # All commands must run as root
 
@@ -33,10 +32,19 @@
         package: docker-ce
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
         signing_key_url: https://download.docker.com/linux/ubuntu/gpg
+      container_name: jupyter
       group_name: docker
+      image:
+        name: tensorflow/tensorflow
+        tag: 1.12.0-gpu-py3
+      published_ports:
+        - 8888:8888
       service_name: docker
       users:
         - devops
+        - ldavis
+      volumes:
+        - /home/ldavis/src:/notebooks
 
     general:
       dependencies:
@@ -50,61 +58,74 @@
           - python-setuptools
           - software-properties-common
         pip:
-          - docker-py
+          - docker
       working_dir: /home/devops
-    
+
     nvidia:
       apt:
         package: nvidia-docker2
         repo_filename: nvidia_github_io_nvidia_docker_ubuntu18_04_nvidia_docker.list
-        repos: 
+        repos:
           libnvidia_container: deb https://nvidia.github.io/libnvidia-container/ubuntu18.04/$(ARCH) /
           nvidia_container_runtime: deb https://nvidia.github.io/nvidia-container-runtime/ubuntu18.04/$(ARCH) /
           nvidia_docker: deb https://nvidia.github.io/nvidia-docker/ubuntu18.04/$(ARCH) /
         signing_key_url: https://nvidia.github.io/nvidia-docker/gpgkey
 
-    tensorflow:
-      image: tensorflow/tensorflow
-      tag: 1.12.0-gpu
-    
   tasks:
     # General Dependencies
     - name: install general apt dependencies
       apt:
         name: "{{ general.dependencies.apt }}"
+        state: present
         update_cache: yes
-    
+      tags:
+        - packages
+
     - name: install general pip dependencies for Ansible
       pip:
         name: "{{ general.dependencies.pip }}"
-    
+        state: present
+      tags:
+        - packages
+
     # General Docker setup
     - name: add Docker's official GPG key
       apt_key:
         state: present
         url: "{{ docker.apt.signing_key_url }}"
+      tags:
+        - docker
 
     - name: add Docker apt repository
       apt_repository:
         repo: "{{ docker.apt.repo }}"
         state: present
+      tags:
+        - docker
 
     - name: install Docker CE
       apt:
         name: "{{ docker.apt.package }}"
+        state: present
         update_cache: yes
-    
+      tags:
+        - docker
+
     - name: ensure the docker service starts at boot
       systemd:
         name: "{{ docker.service_name }}"
         enabled: yes
         state: started
+      tags:
+        - docker
 
     - name: create Docker group to avoid running as root
       group:
         name: "{{ docker.group_name }}"
         state: present
-    
+      tags:
+        - docker
+
     - name: add users to Docker group
       user:
         append: yes
@@ -112,59 +133,71 @@
           - "{{ docker.group_name }}"
         name: "{{ item }}"
       loop: "{{ docker.users }}"
-
-    # Tensorflow Docker Setup
-    - name: pull the Tensorflow GPU image
-      docker_image:
-        name: "{{ tensorflow.image }}"
-        tag: "{{ tensorflow.tag }}"
+      tags:
+        - docker
 
     # CUDA Setup
     - name: copy the CUDA repo onto the machine
       copy:
         src: "{{ cuda.apt.repo }}"
         dest: "{{ general.working_dir }}"
+      tags:
+        - cuda
 
     - name: get the CUDA signing key
       apt_key:
         state: present
         url: "{{ cuda.apt.signing_key_url }}"
+      tags:
+        - cuda
 
     - name: add the CUDA repo
       apt:
         deb: "{{ cuda.apt.repo }}"
         state: present
-      
-    - name: install the CUDA drivers 
+      tags:
+        - cuda
+
+    - name: install the CUDA drivers
       apt:
         name: "{{ cuda.apt.package }}"
         update_cache: yes
       notify:
         - reboot the machine
+      tags:
+        - cuda
 
     # NVIDIA-Docker Runtime Setup
     - name: get the NVIDIA signing key
       apt_key:
         state: present
         url: "{{ nvidia.apt.signing_key_url }}"
+      tags:
+        - nvidia
 
     - name: add the libnvidia-container repo
       apt_repository:
         filename: "{{ nvidia.apt.repo_filename }}"
         repo: "{{ nvidia.apt.repos.libnvidia_container }}"
         state: present
+      tags:
+        - nvidia
 
     - name: add the nvidia-container-runtime repo
       apt_repository:
         filename: "{{ nvidia.apt.repo_filename }}"
         repo: "{{ nvidia.apt.repos.nvidia_container_runtime }}"
         state: present
+      tags:
+        - nvidia
 
     - name: add the nvidia-docker repo
       apt_repository:
         filename: "{{ nvidia.apt.repo_filename }}"
         repo: "{{ nvidia.apt.repos.nvidia_docker }}"
         state: present
+      tags:
+        - nvidia
 
     - name: install the nvidia-docker2 runtime
       apt:
@@ -173,6 +206,33 @@
         update_cache: yes
       notify:
         - reload the docker service
+      tags:
+        - nvidia
+
+    # Launch Jupyter Container in Docker
+    - name: pull the Tensorflow GPU image
+      docker_image:
+        name: "{{ docker.image.name }}"
+        state: present
+        tag: "{{ docker.image.tag }}"
+      tags:
+        - jupyter
+
+    - name: start the Jupyter container
+      docker_container:
+        auto_remove: yes
+        debug: no
+        detach: yes
+        image: "{{ docker.image.name }}:{{ docker.image.tag }}"
+        name: "{{ docker.container_name }}"
+        published_ports: "{{ docker.published_ports }}"
+        pull: no
+        read_only: no
+        restart_policy: "no"
+        state: started
+        volumes: "{{ docker.volumes }}"
+      tags:
+        - jupyter
 
   handlers:
     - name: reboot the machine
