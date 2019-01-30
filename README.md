@@ -1,6 +1,14 @@
-# Arricor Infrastructure Provisioning
+# Deep Learning Machine
 
-This repository contains an Ansible playbook and instructions to create and manage Arricor's bare metal deep learning machines. For a description of why Ansible was chosen and what other alternatives were considered, please see [ToolSelection.md](ToolSelection.md)
+This repository contains an Ansible playbook and instructions to create and manage a single (or many) bare metal deep learning machines. For a description of why Ansible was chosen and what other alternatives were considered, please see [ToolSelection.md](ToolSelection.md)
+
+## What's Included
+After running the ansible script your machines will be loaded with the following:
+
+1. Python 3
+2. CUDA Drivers
+3. Tensorflow GPU
+4. JupyterLab
 
 ## Using This Repository to Configure Your Environment
 
@@ -12,6 +20,7 @@ This repository contains an Ansible playbook and instructions to create and mana
 
 ### Installation
 
+Ansible runs on your local machine and sends commands to the remote (machine learning) machines. You'll need ansible installed locally (not on the machine learning boxes). 
 For macOS users, the easiest way to install Ansible is via [Homebrew](https://brew.sh/):
 
 ```bash
