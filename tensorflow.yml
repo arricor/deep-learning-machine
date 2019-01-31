@@ -42,9 +42,6 @@
       published_ports:
         - 8888:8888
       service_name: docker
-      users:
-        - devops
-        - ldavis
       volumes:
         - /home/ldavis/src:/notebooks
 
@@ -96,6 +93,16 @@
       tags:
         - packages
 
+    # - name: configure rsync on the master
+    #   synchronize:
+    #     src: "{{ general.data_folder.src }}"
+    #     dest: "{{ general.data_folder.dest }}"
+    #     rsync_opts: "{{ general.rsync_options }}"
+    #     use_ssh_args: yes
+    #   tags:
+    #     - data
+    #   when: inventory_hostname == "ml1"
+
     # General Docker setup
     - name: add Docker's official GPG key
       apt_key:
@@ -140,7 +147,7 @@
         groups:
           - "{{ docker.group_name }}"
         name: "{{ item }}"
-      loop: "{{ docker.users }}"
+      loop: "{{ secrets.users }}"
       tags:
         - docker
 
