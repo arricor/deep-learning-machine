@@ -12,45 +12,27 @@
   vars_files:
     - secrets.yml
 
-  tasks:
-    # General Dependencies
-    - include_role:
-        name: packages
-      tags:
-        - packages
+  roles:
+    - role: packages # General Dependencies
+      tags: [packages]
 
-    # Rsync Setup
-    - include_role:
-        name: rsync
-      tags:
-        - rsync
+    - role: rsync # Rsync Setup
+      tags: [rsync]
       vars:
         sync: "{{ secrets.sync }}"
 
-    # General Docker setup
-    - include_role:
-        name: docker
-      tags:
-        - docker
+    - role: docker # General Docker setup
+      tags: [docker]
       vars:
         users: "{{ secrets.users }}"
 
-    # CUDA Driver Setup
-    - include_role:
-        name: cuda
-      tags:
-        - cuda
+    - role: cuda # CUDA Driver Setup
+      tags: [cuda]
 
-    # NVIDIA-Docker Runtime Setup
-    - include_role:
-        name: nvidia
-      tags:
-        - nvidia
+    - role: nvidia # NVIDIA-Docker Runtime Setup
+      tags: [nvidia]
 
-    # Launch Jupyter Container in Docker
-    - include_role:
-        name: jupyter
-      tags:
-        - jupyter
+    - role: jupyter # Launch Jupyter Container in Docker
+      tags: [jupyter]
       vars:
         volumes: "{{ secrets.volumes }}"
