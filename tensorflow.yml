@@ -18,22 +18,6 @@
         repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
         signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
 
-    docker:
-      apt:
-        package: docker-ce
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
-        signing_key_url: https://download.docker.com/linux/ubuntu/gpg
-      container_name: jupyter
-      group_name: docker
-      image:
-        name: tensorflow/tensorflow
-        tag: 1.12.0-gpu-py3
-      published_ports:
-        - 8888:8888
-      service_name: docker
-      volumes:
-        - /home/ldavis/src:/notebooks
-
     general:
       working_dir: /home/devops
 
@@ -71,52 +55,12 @@
       when: inventory_hostname == rsync.master
 
     # General Docker setup
-    - name: add Docker's official GPG key
-      apt_key:
-        state: present
-        url: "{{ docker.apt.signing_key_url }}"
+    - include_role:
+        name: docker
       tags:
         - docker
-
-    - name: add Docker apt repository
-      apt_repository:
-        repo: "{{ docker.apt.repo }}"
-        state: present
-      tags:
-        - docker
-
-    - name: install Docker CE
-      apt:
-        name: "{{ docker.apt.package }}"
-        state: present
-        update_cache: yes
-      tags:
-        - docker
-
-    - name: ensure the docker service starts at boot
-      systemd:
-        name: "{{ docker.service_name }}"
-        enabled: yes
-        state: started
-      tags:
-        - docker
-
-    - name: create Docker group to avoid running as root
-      group:
-        name: "{{ docker.group_name }}"
-        state: present
-      tags:
-        - docker
-
-    - name: add users to Docker group
-      user:
-        append: yes
-        groups:
-          - "{{ docker.group_name }}"
-        name: "{{ item }}"
-      loop: "{{ secrets.users }}"
-      tags:
-        - docker
+      vars:
+        users: "{{ secrets.users }}"
 
     # CUDA Setup
     - name: copy the CUDA repo onto the machine
