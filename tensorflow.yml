@@ -21,16 +21,6 @@
         - 8888:8888
       volumes: "{{ secrets.volumes }}"
 
-    nvidia:
-      apt:
-        package: nvidia-docker2
-        repo_filename: nvidia_github_io_nvidia_docker_ubuntu18_04_nvidia_docker.list
-        repos:
-          libnvidia_container: deb https://nvidia.github.io/libnvidia-container/ubuntu18.04/$(ARCH) /
-          nvidia_container_runtime: deb https://nvidia.github.io/nvidia-container-runtime/ubuntu18.04/$(ARCH) /
-          nvidia_docker: deb https://nvidia.github.io/nvidia-docker/ubuntu18.04/$(ARCH) /
-        signing_key_url: https://nvidia.github.io/nvidia-docker/gpgkey
-
     rsync:
       data_folder:
         src: /home/ldavis/data
@@ -69,46 +59,13 @@
         - cuda
 
     # NVIDIA-Docker Runtime Setup
-    - name: get the NVIDIA signing key
-      apt_key:
-        state: present
-        url: "{{ nvidia.apt.signing_key_url }}"
+    - include_role:
+        name: nvidia
       tags:
         - nvidia
-
-    - name: add the libnvidia-container repo
-      apt_repository:
-        filename: "{{ nvidia.apt.repo_filename }}"
-        repo: "{{ nvidia.apt.repos.libnvidia_container }}"
-        state: present
-      tags:
-        - nvidia
-
-    - name: add the nvidia-container-runtime repo
-      apt_repository:
-        filename: "{{ nvidia.apt.repo_filename }}"
-        repo: "{{ nvidia.apt.repos.nvidia_container_runtime }}"
-        state: present
-      tags:
-        - nvidia
-
-    - name: add the nvidia-docker repo
-      apt_repository:
-        filename: "{{ nvidia.apt.repo_filename }}"
-        repo: "{{ nvidia.apt.repos.nvidia_docker }}"
-        state: present
-      tags:
-        - nvidia
-
-    - name: install the nvidia-docker2 runtime
-      apt:
-        name: "{{ nvidia.apt.package }}"
-        state: present
-        update_cache: yes
-      notify:
-        - reload the docker service
-      tags:
-        - nvidia
+      vars:
+        docker:
+          service_name: docker
 
     # Launch Jupyter Container in Docker
     - name: pull the Tensorflow GPU image
@@ -150,11 +107,6 @@
       when: inventory_hostname != rsync.master
 
   handlers:
-    - name: reload the docker service
-      systemd:
-        name: "{{ docker.service_name }}"
-        state: reloaded
-
     - name: restart the rsync service
       systemd:
         name: "{{ rsync.service_name }}"
