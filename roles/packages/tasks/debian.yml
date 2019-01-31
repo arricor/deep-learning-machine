@@ -5,12 +5,8 @@
     name: "{{ general.dependencies.apt }}"
     state: present
     update_cache: yes
-  tags:
-    - packages
 
 - name: install general pip dependencies for Ansible
   pip:
     name: "{{ general.dependencies.pip }}"
     state: present
-  tags:
-    - packages

@@ -1,0 +1,6 @@
+---
+rsync:
+  config_file:
+    src: rsyncd.conf
+    dest: /etc/rsyncd.conf
+  service_name: rsync
