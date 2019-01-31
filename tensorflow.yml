@@ -1,20 +1,8 @@
 ################################################################################
 # This file consists of three main sections:
 #   1. vars - variables used throughout the playbook are defined here. If you want to change packages or version, this is the place to do it.
-#     a. cuda -
-#     b. docker -
-#     c. general -
-#     d. nvidia -
-#     e. tensorflow -
 #   2. tasks - these are the steps that will be executed by the playbook. This is a straightforward, sequential playbook.
-#     a. General Dependencies
-#     b. General Docker Setup
-#     c. Tensorflow Docker Setup
-#     d. CUDA Setup
-#     e. NVIDIA-Docker Runtime Setup
 #   3. handlers - these steps run only in response to specific events. If the event does not occur, the handler does not run.
-#     a. reboot the machine -
-#     b. reload the docker service -
 ################################################################################
 ---
 - hosts: test # Alternatively, 'canary', 'blue'|'green', 'all' according to your deployment strategy and your /etc/ansible/hosts file
@@ -46,9 +34,6 @@
         - /home/ldavis/src:/notebooks
 
     general:
-      data_folder:
-        src: /home/ldavis/data
-        dest: /home/ldavis
       dependencies:
         apt:
           - apt-transport-https
@@ -61,9 +46,6 @@
           - software-properties-common
         pip:
           - docker
-      rsync_options:
-        - "-e ssh"
-        - "--no-motd"
       working_dir: /home/devops
 
     nvidia:
@@ -75,6 +57,19 @@
           nvidia_container_runtime: deb https://nvidia.github.io/nvidia-container-runtime/ubuntu18.04/$(ARCH) /
           nvidia_docker: deb https://nvidia.github.io/nvidia-docker/ubuntu18.04/$(ARCH) /
         signing_key_url: https://nvidia.github.io/nvidia-docker/gpgkey
+
+    rsync:
+      config_file:
+        src: rsyncd.conf
+        dest: /etc/rsyncd.conf
+      data_folder:
+        src: /home/ldavis/data
+        dest: /home/ldavis
+      master: ml1
+      options:
+        - "-e ssh"
+        - "--no-motd"
+      service_name: rsync
 
   tasks:
     # General Dependencies
@@ -93,15 +88,25 @@
       tags:
         - packages
 
-    # - name: configure rsync on the master
-    #   synchronize:
-    #     src: "{{ general.data_folder.src }}"
-    #     dest: "{{ general.data_folder.dest }}"
-    #     rsync_opts: "{{ general.rsync_options }}"
-    #     use_ssh_args: yes
-    #   tags:
-    #     - data
-    #   when: inventory_hostname == "ml1"
+    # Rsync Server Setup
+    - name: copy rsync.conf up to the master
+      copy:
+        src: "{{ rsync.config_file.src }}"
+        dest: "{{ rsync.config_file.dest }}"
+      notify:
+        - restart the rsync service
+      tags:
+        - rsync
+      when: inventory_hostname == rsync.master
+
+    - name: configure rsync on the master
+      service:
+        enabled: yes
+        name: "{{ rsync.service_name }}"
+        state: started
+      tags:
+        - rsync
+      when: inventory_hostname == rsync.master
 
     # General Docker setup
     - name: add Docker's official GPG key
@@ -253,15 +258,15 @@
 
     # Synchronize the data folder across hosts
     - name: synchronize the data folder
-      delegate_to: ml1
+      delegate_to: "{{ rsync.master }}"
       synchronize:
-        src: "{{ general.data_folder.src }}"
-        dest: "{{ general.data_folder.dest }}"
-        rsync_opts: "{{ general.rsync_options }}"
+        src: "{{ rsync.data_folder.src }}"
+        dest: "{{ rsync.data_folder.dest }}"
+        rsync_opts: "{{ rsync.options }}"
         use_ssh_args: yes
       tags:
         - data
-      when: inventory_hostname != "ml1"
+      when: inventory_hostname != rsync.master
 
   handlers:
     - name: reboot the machine
@@ -271,3 +276,8 @@
       systemd:
         name: "{{ docker.service_name }}"
         state: reloaded
+
+    - name: restart the rsync service
+      systemd:
+        name: "{{ rsync.service_name }}"
+        state: restarted

@@ -2,4 +2,5 @@
 *.retry
 
 # Application secrets
+rsyncd.conf
 secrets.yml
