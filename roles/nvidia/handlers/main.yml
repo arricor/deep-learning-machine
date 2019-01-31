@@ -1,5 +1,5 @@
 ---
 - name: reload the docker service
   systemd:
-    name: "{{ docker.service_name }}"
+    name: docker
     state: reloaded

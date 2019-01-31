@@ -8,18 +8,9 @@
 - hosts: test # Alternatively, 'canary', 'blue'|'green', 'all' according to your deployment strategy and your /etc/ansible/hosts file
   become: yes # All commands must run as root
   strategy: free # Allows all hosts to run to the end of the playbook as fast as they can
+
   vars_files:
     - secrets.yml
-
-  vars:
-    jupyter:
-      container_name: jupyter
-      image:
-        name: tensorflow/tensorflow
-        tag: 1.12.0-gpu-py3
-      published_ports:
-        - 8888:8888
-      volumes: "{{ secrets.volumes }}"
 
   tasks:
     # General Dependencies
@@ -55,33 +46,11 @@
         name: nvidia
       tags:
         - nvidia
-      vars:
-        docker:
-          service_name: docker
 
     # Launch Jupyter Container in Docker
-    - name: pull the Tensorflow GPU image
-      docker_image:
-        name: "{{ jupyter.image.name }}"
-        state: present
-        tag: "{{ jupyter.image.tag }}"
+    - include_role:
+        name: jupyter
       tags:
         - jupyter
-
-    - name: start the Jupyter container
-      docker_container:
-        auto_remove: yes
-        debug: no
-        detach: yes
-        env:
-          PASSWORD: "{{ secrets.jupyter_password }}"
-        image: "{{ jupyter.image.name }}:{{ jupyter.image.tag }}"
-        name: "{{ jupyter.container_name }}"
-        published_ports: "{{ jupyter.published_ports }}"
-        pull: no
-        read_only: no
-        restart_policy: "no"
-        state: started
-        volumes: "{{ jupyter.volumes }}"
-      tags:
-        - jupyter
+      vars:
+        volumes: "{{ secrets.volumes }}"
