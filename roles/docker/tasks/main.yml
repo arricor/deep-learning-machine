@@ -8,15 +8,11 @@
     name: "{{ docker.service_name }}"
     enabled: yes
     state: started
-  tags:
-    - docker
 
 - name: create Docker group to avoid running as root
   group:
     name: "{{ docker.group_name }}"
     state: present
-  tags:
-    - docker
 
 - name: add users to Docker group
   user:
@@ -25,5 +21,3 @@
       - "{{ docker.group_name }}"
     name: "{{ item }}"
   loop: "{{ users }}"
-  tags:
-    - docker

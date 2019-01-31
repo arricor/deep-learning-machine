@@ -4,20 +4,14 @@
   apt_key:
     state: present
     url: "{{ docker.apt.signing_key_url }}"
-  tags:
-    - docker
 
 - name: add Docker apt repository
   apt_repository:
     repo: "{{ docker.apt.repo }}"
     state: present
-  tags:
-    - docker
 
 - name: install Docker CE
   apt:
     name: "{{ docker.apt.package }}"
     state: present
     update_cache: yes
-  tags:
-    - docker
