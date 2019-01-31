@@ -21,15 +21,6 @@
         - 8888:8888
       volumes: "{{ secrets.volumes }}"
 
-    rsync:
-      data_folder:
-        src: /home/ldavis/data
-        dest: /home/ldavis
-      master: ml1
-      options:
-        - "-e ssh"
-        - "--no-motd"
-
   tasks:
     # General Dependencies
     - include_role:
@@ -37,12 +28,13 @@
       tags:
         - packages
 
-    # Rsync Server Setup
+    # Rsync Setup
     - include_role:
         name: rsync
       tags:
         - rsync
-      when: inventory_hostname == rsync.master
+      vars:
+        sync: "{{ secrets.sync }}"
 
     # General Docker setup
     - include_role:
@@ -93,21 +85,3 @@
         volumes: "{{ jupyter.volumes }}"
       tags:
         - jupyter
-
-    # Synchronize the data folder across hosts
-    - name: synchronize the data folder
-      delegate_to: "{{ rsync.master }}"
-      synchronize:
-        src: "{{ rsync.data_folder.src }}"
-        dest: "{{ rsync.data_folder.dest }}"
-        rsync_opts: "{{ rsync.options }}"
-        use_ssh_args: yes
-      tags:
-        - data
-      when: inventory_hostname != rsync.master
-
-  handlers:
-    - name: restart the rsync service
-      systemd:
-        name: "{{ rsync.service_name }}"
-        state: restarted
