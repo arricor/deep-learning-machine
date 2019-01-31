@@ -12,14 +12,14 @@
     - secrets.yml
 
   vars:
-    cuda:
-      apt:
-        package: cuda
-        repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
-        signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-
-    general:
-      working_dir: /home/devops
+    jupyter:
+      container_name: jupyter
+      image:
+        name: tensorflow/tensorflow
+        tag: 1.12.0-gpu-py3
+      published_ports:
+        - 8888:8888
+      volumes: "{{ secrets.volumes }}"
 
     nvidia:
       apt:
@@ -62,34 +62,9 @@
       vars:
         users: "{{ secrets.users }}"
 
-    # CUDA Setup
-    - name: copy the CUDA repo onto the machine
-      copy:
-        src: "{{ cuda.apt.repo }}"
-        dest: "{{ general.working_dir }}"
-      tags:
-        - cuda
-
-    - name: get the CUDA signing key
-      apt_key:
-        state: present
-        url: "{{ cuda.apt.signing_key_url }}"
-      tags:
-        - cuda
-
-    - name: add the CUDA repo
-      apt:
-        deb: "{{ cuda.apt.repo }}"
-        state: present
-      tags:
-        - cuda
-
-    - name: install the CUDA drivers
-      apt:
-        name: "{{ cuda.apt.package }}"
-        update_cache: yes
-      notify:
-        - reboot the machine
+    # CUDA Driver Setup
+    - include_role:
+        name: cuda
       tags:
         - cuda
 
@@ -138,9 +113,9 @@
     # Launch Jupyter Container in Docker
     - name: pull the Tensorflow GPU image
       docker_image:
-        name: "{{ docker.image.name }}"
+        name: "{{ jupyter.image.name }}"
         state: present
-        tag: "{{ docker.image.tag }}"
+        tag: "{{ jupyter.image.tag }}"
       tags:
         - jupyter
 
@@ -151,14 +126,14 @@
         detach: yes
         env:
           PASSWORD: "{{ secrets.jupyter_password }}"
-        image: "{{ docker.image.name }}:{{ docker.image.tag }}"
-        name: "{{ docker.container_name }}"
-        published_ports: "{{ docker.published_ports }}"
+        image: "{{ jupyter.image.name }}:{{ jupyter.image.tag }}"
+        name: "{{ jupyter.container_name }}"
+        published_ports: "{{ jupyter.published_ports }}"
         pull: no
         read_only: no
         restart_policy: "no"
         state: started
-        volumes: "{{ docker.volumes }}"
+        volumes: "{{ jupyter.volumes }}"
       tags:
         - jupyter
 
@@ -175,9 +150,6 @@
       when: inventory_hostname != rsync.master
 
   handlers:
-    - name: reboot the machine
-      reboot:
-
     - name: reload the docker service
       systemd:
         name: "{{ docker.service_name }}"
