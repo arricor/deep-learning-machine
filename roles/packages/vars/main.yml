@@ -1,0 +1,15 @@
+---
+# General Dependencies
+general:
+  dependencies:
+    apt:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - python-apt
+      - python-pip
+      - python-setuptools
+      - software-properties-common
+    pip:
+      - docker

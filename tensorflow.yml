@@ -7,6 +7,7 @@
 ---
 - hosts: test # Alternatively, 'canary', 'blue'|'green', 'all' according to your deployment strategy and your /etc/ansible/hosts file
   become: yes # All commands must run as root
+  strategy: free # Allows all hosts to run to the end of the playbook as fast as they can
   vars_files:
     - secrets.yml
 
@@ -34,18 +35,6 @@
         - /home/ldavis/src:/notebooks
 
     general:
-      dependencies:
-        apt:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - gnupg-agent
-          - python-apt
-          - python-pip
-          - python-setuptools
-          - software-properties-common
-        pip:
-          - docker
       working_dir: /home/devops
 
     nvidia:
@@ -73,20 +62,8 @@
 
   tasks:
     # General Dependencies
-    - name: install general apt dependencies
-      apt:
-        name: "{{ general.dependencies.apt }}"
-        state: present
-        update_cache: yes
-      tags:
-        - packages
-
-    - name: install general pip dependencies for Ansible
-      pip:
-        name: "{{ general.dependencies.pip }}"
-        state: present
-      tags:
-        - packages
+    - include_role:
+        name: packages
 
     # Rsync Server Setup
     - name: copy rsync.conf up to the master
