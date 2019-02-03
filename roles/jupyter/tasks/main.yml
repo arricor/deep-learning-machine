@@ -33,8 +33,8 @@
 #     - jupyter
 
 ##
-# As part of the workaround, first check if there is a running container with 
-# the name {{ jupyter.container_name }}. If so, we will not execute the start 
+# As part of the workaround, first check if there is a running container with
+# the name {{ jupyter.container_name }}. If so, we will not execute the start
 # command that follows.
 - name: check for running Jupyter container
   command:
@@ -63,12 +63,14 @@
       - --runtime=nvidia
       - --env
       - PASSWORD={{ secrets.jupyter_password }}
-      - --publish 
+      - --publish
       - "{{ jupyter.published_ports }}"
       - --name
       - "{{ jupyter.container_name }}"
       - --volume
-      - "{{ jupyter.volume }}"
+      - "{{ jupyter.volumes.source }}"
+      - --volume
+      - "{{ jupyter.volumes.data }}"
       - "{{ jupyter.image.name }}:{{ jupyter.image.tag }}"
   tags: -jupyter
   when: run_check.rc != 0

@@ -5,4 +5,4 @@ jupyter:
     name: robsutter/tensorflow # FROM tensorflow/tensorflow but adds our python libraries
     tag: 1.12.0-gpu-py3
   published_ports: 8888:8888
-  volume: "{{ volume }}"
+  volumes: "{{ volumes }}"
