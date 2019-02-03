@@ -35,4 +35,4 @@
     - role: jupyter # Launch Jupyter Container in Docker
       tags: [jupyter]
       vars:
-        volumes: "{{ secrets.volumes }}"
+        volume: "{{ secrets.volume }}"
