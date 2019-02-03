@@ -2,13 +2,46 @@
 
 This repository contains an Ansible playbook and instructions to create and manage a single (or many) bare metal deep learning machines. For a description of why Ansible was chosen and what other alternatives were considered, please see [ToolSelection.md](ToolSelection.md)
 
+## Quick Reference
+
+If you've already [installed Ansible](#Installation), you can execute the entire playbook by running:
+
+```bash
+$ ansible-playbook tensorflow.yml
+```
+
+You can also execute only the pieces you need by passing tags on the command line:
+
+- Install only apt/pip [pre-requisites](roles/packages) to execute the other roles:
+  ```bash
+  $ ansible-playbook tensorflow.yml --tags "packages"
+  ```
+- Install [Docker CE](roles/docker):
+  ```bash
+  $ ansible-playbook tensorflow.yml --tags "docker"
+  ```
+- Install the [Nvidia CUDA GPU drivers](roles/cuda):
+  ```bash
+  $ ansible-playbook tensorflow.yml --tags "cuda"
+  ```
+- Install the [Nvidia Docker Runtime](roles/nvidia):
+  ```bash
+  $ ansible-playbook tensorflow.yml --tags "nvidia"
+  ```
+- Download the TensorFlow container and launch [Jupyter Notebook](roles/jupyter):
+  ```bash
+  $ ansible-playbook tensorflow.yml --tags "jupyter"
+  ```
+
 ## What's Included
+
 After running the ansible script your machines will be loaded with the following:
 
-1. Python 3
-2. CUDA Drivers
-3. Tensorflow GPU
-4. JupyterLab
+1. Docker
+2. Nvidia CUDA GPU Drivers
+3. Nvidia Docker Runtime
+4. TensorFlow GPU Python3 Docker Container
+5. JupyterLab
 
 ## Using This Repository to Configure Your Environment
 
@@ -20,7 +53,7 @@ After running the ansible script your machines will be loaded with the following
 
 ### Installation
 
-Ansible runs on your local machine and sends commands to the remote (machine learning) machines. You'll need ansible installed locally (not on the machine learning boxes). 
+Ansible runs on your local machine and sends commands to the remote (machine learning) machines. You'll need ansible installed locally (not on the machine learning boxes).
 For macOS users, the easiest way to install Ansible is via [Homebrew](https://brew.sh/):
 
 ```bash
@@ -94,13 +127,16 @@ Review the output:
 
 ## Executing Tensorflow Jobs in Your New Environment
 
-1. Login to the remote machine.
-2. Drop yourself into the shell on a Python 3 GPU-based Tensorflow container:
-  ```bash
-  $ docker run --runtime=nvidia -it tensorflow/tensorflow:latest-gpu-py3 bash
-  ```
-3. Profit!
+1. Point your browser to http://&lt;hostname&gt;:8888 and login with the password you provided.
+2. The `jupyter.volumes.source` folder will be mounted as the `notebooks` folder.
+3. Edit and execute your Jupyter notebooks as normal!
 
-TODO: Add specifics on how to map volumes and run notebooks once discussed and agreed.
+### Command Line Access
 
-**Note:** You must be a member of the `docker` group or have `sudo` access to run Docker commands.
+If you need to drop into a GPU-powered TensorFlow environment, SSH into the remote machine and execute the following:
+
+```bash
+$ docker run --runtime=nvidia -it --rm tensorflow/tensorflow:latest-gpu-py3 bash
+```
+
+**Note:** You must be a member of the `docker` group or have `sudo` access on the _remote machine_ to execute docker commands.
