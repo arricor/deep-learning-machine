@@ -140,3 +140,12 @@ $ docker run --runtime=nvidia -it --rm tensorflow/tensorflow:latest-gpu-py3 bash
 ```
 
 **Note:** You must be a member of the `docker` group or have `sudo` access on the _remote machine_ to execute docker commands.
+
+---
+
+## Additional Files
+
+- [ansible.cfg](ansible.cfg) enables SSH credential forwarding. This is a necessary step during data synchronization, as Ansible delegates those credentials to the master/writer host to push the data folder out to each of the mirrors.
+- [Dockerfile](Dockerfile) is used to build the Arricor TensorFlow image. See [Docker.md](Docker.md) for additional details.
+- [hosts.example](hosts.example) is an example of the Ansible inventory hosts file saved in `/etc/ansible/hosts`
+- [secrets.example.yml](secrets.example.yml) is an example of the expected structure of the `secrets.yml` file
