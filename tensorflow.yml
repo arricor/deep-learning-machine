@@ -16,10 +16,10 @@
     - role: packages # General Dependencies
       tags: [packages]
 
-    - role: rsync # Rsync Setup
-      tags: [rsync]
-      vars:
-        sync: "{{ secrets.sync }}"
+    # - role: rsync # Rsync Setup
+    #   tags: [rsync]
+    #   vars:
+    #     sync: "{{ secrets.sync }}"
 
     - role: docker # General Docker setup
       tags: [docker]
