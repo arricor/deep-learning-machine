@@ -3,7 +3,7 @@
 - name: copy the CUDA repo onto the machine
   copy:
     src: "{{ cuda.apt.repo }}"
-    dest: "{{ general.working_dir }}"
+    dest: "{{ general.working_dir }}/{{ cuda.apt.repo }}"
 
 - name: get the CUDA signing key
   apt_key:
@@ -12,7 +12,7 @@
 
 - name: add the CUDA repo
   apt:
-    deb: "{{ cuda.apt.repo }}"
+    deb: "{{ general.working_dir }}/{{ cuda.apt.repo }}"
     state: present
 
 - name: install the CUDA drivers
