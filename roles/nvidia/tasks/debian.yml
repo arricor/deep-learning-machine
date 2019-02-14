@@ -28,5 +28,4 @@
     name: "{{ nvidia.apt.package }}"
     state: present
     update_cache: yes
-  notify:
-    - reload the docker service
+  notify: "reload the docker service"

@@ -3,3 +3,4 @@
   systemd:
     name: docker
     state: reloaded
+  listen: "reload the docker service"

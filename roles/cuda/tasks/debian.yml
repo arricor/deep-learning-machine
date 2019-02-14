@@ -19,5 +19,4 @@
   apt:
     name: "{{ cuda.apt.package }}"
     update_cache: yes
-  notify:
-    - reboot the machine
+  notify: "reboot the machine"
