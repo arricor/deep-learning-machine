@@ -4,3 +4,4 @@
 # Application secrets
 rsyncd.conf
 secrets.yml
+hosts
