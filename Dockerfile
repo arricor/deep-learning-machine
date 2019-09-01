@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:1.12.0-gpu-py3
+FROM tensorflow/tensorflow:2.0.0rc0-gpu-py3-jupyter
 
 RUN pip3 install \
   bs4==0.0.1    `# known good with 0.0.1`  \
