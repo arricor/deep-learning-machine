@@ -33,6 +33,14 @@
 #     - jupyter
 
 ##
+#
+- name: Set password
+  lineinfile:
+    path: /home/arricor/jupyter_notebook_config.py
+    line: "c.NotebookApp.password = u'{{ secrets.password_hash }}'"
+    create: yes
+
+
 # As part of the workaround, first check if there is a running container with
 # the name {{ jupyter.container_name }}. If so, we will not execute the start
 # command that follows.
@@ -60,8 +68,6 @@
       - --detach
       - --restart=always
       - --runtime=nvidia
-      - --env
-      - PASSWORD={{ secrets.jupyter_password }}
       - --publish
       - "{{ jupyter.published_ports }}"
       - --name
@@ -70,6 +76,8 @@
       - "{{ jupyter.volumes.source }}"
       - --volume
       - "{{ jupyter.volumes.data }}"
+      - --volume
+      - "/home/arricor/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py"
       - "{{ jupyter.image.name }}:{{ jupyter.image.tag }}"
   tags: -jupyter
   when: run_check.rc != 0
