@@ -1,10 +1,20 @@
 ---
-# General Dependencies
+
+- name: add Docker apt repository
+  apt_repository:
+    repo: ppa:ansible/ansible
+    state: present
+
+- name: Upgrade all packages to the latest version
+  apt:
+    name: "*"
+    update_cache: yes
+    state: latest
+
 - name: install general apt dependencies
   apt:
     name: "{{ general.dependencies.apt }}"
     state: present
-    update_cache: yes
 
 - name: install general pip dependencies for Ansible
   pip:

@@ -5,79 +5,34 @@
     name: "{{ jupyter.image.name }}"
     state: present
     tag: "{{ jupyter.image.tag }}"
+    source: pull
   tags:
     - jupyter
 
-##
-# The below code will not support the required "runtime" parameter until
-# Ansible 2.8 is released to gold on 02 May 2019. A workaround follows.
-##
-
-# - name: start the Jupyter container
-#   docker_container:
-#     auto_remove: no
-#     debug: no
-#     detach: yes
-#     env:
-#       PASSWORD: "{{ secrets.jupyter_password }}"
-#     image: "{{ jupyter.image.name }}:{{ jupyter.image.tag }}"
-#     name: "{{ jupyter.container_name }}"
-#     published_ports: "{{ jupyter.published_ports }}"
-#     pull: no
-#     read_only: no
-#     restart_policy: always
-#     runtime: nvidia
-#     state: started
-#     volumes: "{{ jupyter.volumes }}"
-#   tags:
-#     - jupyter
-
-##
-#
 - name: Set password
   lineinfile:
-    path: /home/arricor/jupyter_notebook_config.py
+    path: /etc/jupyter_notebook_config.py
     line: "c.NotebookApp.password = u'{{ secrets.password_hash }}'"
     create: yes
-
-
-# As part of the workaround, first check if there is a running container with
-# the name {{ jupyter.container_name }}. If so, we will not execute the start
-# command that follows.
-- name: check for running Jupyter container
-  command:
-  args:
-    argv:
-      - docker
-      - inspect
-      - "{{ jupyter.container_name }}"
-  ignore_errors: yes
-  register: run_check
-
-##
-# The "command" module is used as a workaround until Ansible 2.8 is
-# released to gold on 02 May 2019
-##
+  tags:
+    - jupyter
 
 - name: start the Jupyter container
-  command:
-  args:
-    argv:
-      - docker
-      - run
-      - --detach
-      - --restart=always
-      - --runtime=nvidia
-      - --publish
-      - "{{ jupyter.published_ports }}"
-      - --name
-      - "{{ jupyter.container_name }}"
-      - --volume
-      - "{{ jupyter.volumes.source }}"
-      - --volume
-      - "{{ jupyter.volumes.data }}"
-      - --volume
-      - "/home/arricor/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py"
-      - "{{ jupyter.image.name }}:{{ jupyter.image.tag }}"
-  tags: -jupyter
-  when: run_check.rc != 0
+  docker_container:
+    auto_remove: no
+    debug: no
+    detach: yes
+    image: "{{ jupyter.image.name }}:{{ jupyter.image.tag }}"
+    name: "{{ jupyter.container_name }}"
+    published_ports: "{{ jupyter.published_ports }}"
+    pull: no
+    read_only: no
+    restart_policy: always
+    runtime: "{{ secrets.runtime }}"
+    state: started
+    volumes:
+      - "{{ secrets.volumes.data }}"
+      - "{{ secrets.volumes.source }}"
+      - "/etc/jupyter_notebook_config.py:/root/.jupyter/jupyter_notebook_config.py"
+  tags:
+    - jupyter

@@ -5,3 +5,7 @@
 rsyncd.conf
 secrets.yml
 hosts
+
+.idea/
+.vagrant/
+*.log
