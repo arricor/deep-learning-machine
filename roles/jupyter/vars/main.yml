@@ -5,4 +5,3 @@ jupyter:
     name: arricor/tensorflow # FROM tensorflow/tensorflow but adds our python libraries
     tag: 2.0.0rc0-gpu-py3-jupyter
   published_ports: 8888:8888
-  volumes: "{{ volumes }}"

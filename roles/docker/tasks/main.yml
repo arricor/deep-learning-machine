@@ -21,3 +21,4 @@
       - "{{ docker.group_name }}"
     name: "{{ item }}"
   loop: "{{ users }}"
+

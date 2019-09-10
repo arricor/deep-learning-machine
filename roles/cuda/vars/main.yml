@@ -1,8 +1,8 @@
 ---
 cuda:
   apt:
-    package: cuda=10.* # known good with 10.0.130-1
-    repo: cuda-repo-ubuntu1804_10.0.130-1_amd64.deb # Network install
+    package: cuda # known good with 10.0.130-1
+    repo_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-repo-ubuntu1804_10.1.243-1_amd64.deb
     signing_key_url: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
 
 general:
